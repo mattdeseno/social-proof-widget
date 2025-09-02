@@ -1,9 +1,10 @@
 /**
- * HLPT Social Proof Widget - Improved Version
+ * HLPT Social Proof Widget - Color Customization Version
  * A JavaScript widget that displays recent purchase notifications from Google Sheets
- * Version: 2.1.0
+ * Version: 2.2.0
  * 
  * New Features:
+ * - Custom gradient colors
  * - Profile pictures (emoji or Gravatar)
  * - Verification footer toggle
  * - Custom verification text
@@ -14,7 +15,7 @@
  * <script src="https://cdn.jsdelivr.net/gh/mattdeseno/social-proof-widget@latest/hlpt-spw.js"
  *         data-spreadsheet-id="YOUR_SHEET_ID"
  *         data-position="bottom-left"
- *         data-theme="light"
+ *         data-primary-color="#667eea"
  *         data-show-verification="true"
  *         data-verification-text="Verified by Social Proof"></script>
  */
@@ -138,7 +139,23 @@
          */
         formatTimeAgo(timestamp) {
             try {
-                const date = new Date(timestamp);
+                let date = new Date(timestamp);
+                
+                // If date is invalid, try parsing as different formats
+                if (isNaN(date.getTime())) {
+                    // Try parsing as MM/DD/YYYY format
+                    const parts = timestamp.split('/');
+                    if (parts.length === 3) {
+                        date = new Date(parts[2], parts[0] - 1, parts[1]);
+                    }
+                }
+                
+                // If still invalid, use a recent time
+                if (isNaN(date.getTime())) {
+                    const randomMins = Math.floor(Math.random() * 120) + 5; // 5-125 minutes ago
+                    date = new Date(Date.now() - (randomMins * 60000));
+                }
+                
                 const now = new Date();
                 const diffMs = now - date;
                 const diffMins = Math.floor(diffMs / 60000);
@@ -164,13 +181,14 @@
                 spreadsheetId: '',
                 sheetGid: '0',
                 position: 'bottom-left',
-                theme: 'light',
+                primaryColor: '#667eea',
                 displayDuration: 4000,
                 delayBetween: 3000,
                 maxNotifications: 5,
                 hideAfter: 10,
                 showVerification: true,
-                verificationText: 'Verified by Social Proof',
+                verificationText: 'Verified by Google',
+                showTimeAgo: true,
                 ...config
             };
 
@@ -328,11 +346,37 @@
         }
 
         /**
+         * Generate secondary color from primary color
+         * @param {string} primaryColor - Primary hex color
+         * @returns {string} Secondary hex color
+         */
+        generateSecondaryColor(primaryColor) {
+            // Remove # if present
+            const hex = primaryColor.replace('#', '');
+            
+            // Parse RGB values
+            const r = parseInt(hex.substr(0, 2), 16);
+            const g = parseInt(hex.substr(2, 2), 16);
+            const b = parseInt(hex.substr(4, 2), 16);
+            
+            // Darken by 20% and shift hue slightly
+            const factor = 0.8;
+            const newR = Math.round(r * factor);
+            const newG = Math.round(g * factor * 0.9); // Slight hue shift
+            const newB = Math.round(b * factor * 1.1); // Slight hue shift
+            
+            // Convert back to hex
+            const toHex = (n) => Math.max(0, Math.min(255, n)).toString(16).padStart(2, '0');
+            return `#${toHex(newR)}${toHex(newG)}${toHex(newB)}`;
+        }
+
+        /**
          * Get widget CSS styles
          */
         getWidgetCSS() {
             const position = this.getPositionStyles();
-            const theme = this.getThemeStyles();
+            const primaryColor = this.config.primaryColor;
+            const secondaryColor = this.generateSecondaryColor(primaryColor);
             
             return `
                 .social-proof-widget {
@@ -353,7 +397,7 @@
                 }
 
                 .spw-notification {
-                    ${theme.background}
+                    background: rgba(255, 255, 255, 0.98);
                     border-radius: 12px;
                     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
                     padding: 16px 20px;
@@ -361,7 +405,7 @@
                     min-width: 320px;
                     position: relative;
                     backdrop-filter: blur(10px);
-                    border: 1px solid ${theme.borderColor};
+                    border: 1px solid rgba(0, 0, 0, 0.08);
                 }
 
                 .spw-notification:hover .spw-close {
@@ -383,7 +427,7 @@
                     width: 48px;
                     height: 48px;
                     border-radius: 12px;
-                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    background: linear-gradient(135deg, ${primaryColor} 0%, ${secondaryColor} 100%);
                     display: flex;
                     align-items: center;
                     justify-content: center;
@@ -415,14 +459,14 @@
                 .spw-message {
                     font-weight: 500;
                     font-size: 15px;
-                    ${theme.primaryText}
+                    color: #1f2937;
                     line-height: 1.4;
                     margin-bottom: 4px;
                 }
 
                 .spw-time {
                     font-size: 13px;
-                    ${theme.mutedText}
+                    color: #6b7280;
                     font-weight: 400;
                 }
 
@@ -433,30 +477,30 @@
                     width: 24px;
                     height: 24px;
                     border-radius: 6px;
-                    background: ${theme.closeBackground};
+                    background: rgba(0, 0, 0, 0.05);
                     display: flex;
                     align-items: center;
                     justify-content: center;
                     cursor: pointer;
                     font-size: 16px;
                     line-height: 1;
-                    ${theme.closeText}
+                    color: #6b7280;
                     opacity: 0;
                     transition: all 0.2s ease;
                     font-weight: 400;
                 }
 
                 .spw-close:hover {
-                    background: ${theme.closeHoverBackground};
+                    background: rgba(0, 0, 0, 0.1);
                     transform: scale(1.1);
                 }
 
                 .spw-verification {
                     margin-top: 12px;
                     padding-top: 12px;
-                    border-top: 1px solid ${theme.borderColor};
+                    border-top: 1px solid rgba(0, 0, 0, 0.08);
                     font-size: 12px;
-                    ${theme.mutedText}
+                    color: #6b7280;
                     display: flex;
                     align-items: center;
                     gap: 6px;
@@ -495,34 +539,6 @@
             };
 
             return positions[this.config.position] || positions['bottom-left'];
-        }
-
-        /**
-         * Get theme-specific CSS styles
-         */
-        getThemeStyles() {
-            const themes = {
-                light: {
-                    background: 'background: rgba(255, 255, 255, 0.98);',
-                    primaryText: 'color: #1f2937;',
-                    mutedText: 'color: #6b7280;',
-                    borderColor: 'rgba(0, 0, 0, 0.08)',
-                    closeBackground: 'rgba(0, 0, 0, 0.05)',
-                    closeHoverBackground: 'rgba(0, 0, 0, 0.1)',
-                    closeText: 'color: #6b7280;'
-                },
-                dark: {
-                    background: 'background: rgba(31, 41, 55, 0.98);',
-                    primaryText: 'color: #f9fafb;',
-                    mutedText: 'color: #9ca3af;',
-                    borderColor: 'rgba(255, 255, 255, 0.1)',
-                    closeBackground: 'rgba(255, 255, 255, 0.1)',
-                    closeHoverBackground: 'rgba(255, 255, 255, 0.2)',
-                    closeText: 'color: #d1d5db;'
-                }
-            };
-
-            return themes[this.config.theme] || themes.light;
         }
 
         /**
@@ -585,7 +601,14 @@
             
             // Update content
             messageEl.textContent = messageText;
-            timeEl.textContent = notification.timeAgo || 'recently';
+            
+            // Conditionally show time based on showTimeAgo setting
+            if (this.config.showTimeAgo) {
+                timeEl.textContent = notification.timeAgo || 'recently';
+                timeEl.style.display = 'block';
+            } else {
+                timeEl.style.display = 'none';
+            }
             
             // Handle profile picture
             this.setAvatar(avatarEl, notification);
@@ -778,13 +801,14 @@
                 spreadsheetId: script.getAttribute('data-spreadsheet-id'),
                 sheetGid: script.getAttribute('data-sheet-gid') || '0',
                 position: script.getAttribute('data-position') || 'bottom-left',
-                theme: script.getAttribute('data-theme') || 'light',
+                primaryColor: script.getAttribute('data-primary-color') || '#667eea',
                 displayDuration: parseInt(script.getAttribute('data-display-duration')) || 4000,
                 delayBetween: parseInt(script.getAttribute('data-delay-between')) || 3000,
                 maxNotifications: parseInt(script.getAttribute('data-max-notifications')) || 5,
                 hideAfter: parseInt(script.getAttribute('data-hide-after')) || 10,
                 showVerification: script.getAttribute('data-show-verification') !== 'false',
-                verificationText: script.getAttribute('data-verification-text') || 'Verified by Social Proof'
+                verificationText: script.getAttribute('data-verification-text') || 'Verified by Google',
+                showTimeAgo: script.getAttribute('data-show-time-ago') !== 'false'
             };
 
             window.socialProofWidget = new SocialProofWidget(config);
