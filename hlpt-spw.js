@@ -1,7 +1,7 @@
 /**
  * HLPT Social Proof Widget - Enhanced Version with Fixed Gravatar
  * Filename: hlpt-spw.js
- * v2.3.0
+ * 
  * A lightweight, customizable social proof widget that displays recent notifications
  * from Google Sheets with profile pictures, custom colors, and verification badges.
  */
