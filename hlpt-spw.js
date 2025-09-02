@@ -1,53 +1,209 @@
 /**
- * HLPT Social Proof Widget - Color Customization Version
- * A JavaScript widget that displays recent purchase notifications from Google Sheets
- * Version: 2.2.0
+ * HLPT Social Proof Widget - Enhanced Version with Fixed Gravatar
+ * Filename: hlpt-spw.js
  * 
- * New Features:
- * - Custom gradient colors
- * - Profile pictures (emoji or Gravatar)
- * - Verification footer toggle
- * - Custom verification text
- * - Customizable action text
- * - Improved design with hover effects
- * 
- * Usage:
- * <script src="https://cdn.jsdelivr.net/gh/mattdeseno/social-proof-widget@latest/hlpt-spw.js"
- *         data-spreadsheet-id="YOUR_SHEET_ID"
- *         data-position="bottom-left"
- *         data-primary-color="#667eea"
- *         data-show-verification="true"
- *         data-verification-text="Verified by Social Proof"></script>
+ * A lightweight, customizable social proof widget that displays recent notifications
+ * from Google Sheets with profile pictures, custom colors, and verification badges.
  */
 
 (function() {
     'use strict';
 
     /**
-     * Google Sheets Integration Module
-     * Fetches data from a public Google Sheet using the JSON endpoint
+     * Proper MD5 hash function for Gravatar URLs
+     */
+    function md5(string) {
+        function rotateLeft(value, amount) {
+            var lbits = (value << amount) | (value >>> (32 - amount));
+            return lbits;
+        }
+
+        function addUnsigned(x, y) {
+            var x4 = (x & 0x40000000);
+            var y4 = (y & 0x40000000);
+            var x8 = (x & 0x80000000);
+            var y8 = (y & 0x80000000);
+            var result = (x & 0x3FFFFFFF) + (y & 0x3FFFFFFF);
+            if (x4 & y4) {
+                return (result ^ 0x80000000 ^ x8 ^ y8);
+            }
+            if (x4 | y4) {
+                if (result & 0x40000000) {
+                    return (result ^ 0xC0000000 ^ x8 ^ y8);
+                } else {
+                    return (result ^ 0x40000000 ^ x8 ^ y8);
+                }
+            } else {
+                return (result ^ x8 ^ y8);
+            }
+        }
+
+        function f(x, y, z) { return (x & y) | ((~x) & z); }
+        function g(x, y, z) { return (x & z) | (y & (~z)); }
+        function h(x, y, z) { return (x ^ y ^ z); }
+        function i(x, y, z) { return (y ^ (x | (~z))); }
+
+        function ff(a, b, c, d, x, s, ac) {
+            a = addUnsigned(a, addUnsigned(addUnsigned(f(b, c, d), x), ac));
+            return addUnsigned(rotateLeft(a, s), b);
+        }
+
+        function gg(a, b, c, d, x, s, ac) {
+            a = addUnsigned(a, addUnsigned(addUnsigned(g(b, c, d), x), ac));
+            return addUnsigned(rotateLeft(a, s), b);
+        }
+
+        function hh(a, b, c, d, x, s, ac) {
+            a = addUnsigned(a, addUnsigned(addUnsigned(h(b, c, d), x), ac));
+            return addUnsigned(rotateLeft(a, s), b);
+        }
+
+        function ii(a, b, c, d, x, s, ac) {
+            a = addUnsigned(a, addUnsigned(addUnsigned(i(b, c, d), x), ac));
+            return addUnsigned(rotateLeft(a, s), b);
+        }
+
+        function convertToWordArray(string) {
+            var wordArray = [];
+            var wordCount = (((string.length + 8) - ((string.length + 8) % 64)) / 64) + 1;
+            var messageLength = wordCount * 16;
+            wordArray[messageLength - 1] = undefined;
+            for (var i = 0; i < messageLength; i++) {
+                wordArray[i] = 0;
+            }
+            var bytePosition = 0;
+            var byteCount = 0;
+            while (byteCount < string.length) {
+                wordArray[bytePosition] = (wordArray[bytePosition] | (string.charCodeAt(byteCount) << (8 * (byteCount % 4))));
+                byteCount++;
+                if (byteCount % 4 === 0) {
+                    bytePosition++;
+                }
+            }
+            wordArray[bytePosition] = (wordArray[bytePosition] | (0x80 << (8 * (byteCount % 4))));
+            wordArray[messageLength - 2] = string.length << 3;
+            wordArray[messageLength - 1] = string.length >>> 29;
+            return wordArray;
+        }
+
+        function wordToHex(value) {
+            var wordToHexValue = "", wordToHexValueTemp = "", byte, count;
+            for (count = 0; count <= 3; count++) {
+                byte = (value >>> (count * 8)) & 255;
+                wordToHexValueTemp = "0" + byte.toString(16);
+                wordToHexValue = wordToHexValue + wordToHexValueTemp.substr(wordToHexValueTemp.length - 2, 2);
+            }
+            return wordToHexValue;
+        }
+
+        var x = convertToWordArray(string);
+        var a = 0x67452301;
+        var b = 0xEFCDAB89;
+        var c = 0x98BADCFE;
+        var d = 0x10325476;
+
+        for (var k = 0; k < x.length; k += 16) {
+            var AA = a;
+            var BB = b;
+            var CC = c;
+            var DD = d;
+            a = ff(a, b, c, d, x[k + 0], 7, 0xD76AA478);
+            d = ff(d, a, b, c, x[k + 1], 12, 0xE8C7B756);
+            c = ff(c, d, a, b, x[k + 2], 17, 0x242070DB);
+            b = ff(b, c, d, a, x[k + 3], 22, 0xC1BDCEEE);
+            a = ff(a, b, c, d, x[k + 4], 7, 0xF57C0FAF);
+            d = ff(d, a, b, c, x[k + 5], 12, 0x4787C62A);
+            c = ff(c, d, a, b, x[k + 6], 17, 0xA8304613);
+            b = ff(b, c, d, a, x[k + 7], 22, 0xFD469501);
+            a = ff(a, b, c, d, x[k + 8], 7, 0x698098D8);
+            d = ff(d, a, b, c, x[k + 9], 12, 0x8B44F7AF);
+            c = ff(c, d, a, b, x[k + 10], 17, 0xFFFF5BB1);
+            b = ff(b, c, d, a, x[k + 11], 22, 0x895CD7BE);
+            a = ff(a, b, c, d, x[k + 12], 7, 0x6B901122);
+            d = ff(d, a, b, c, x[k + 13], 12, 0xFD987193);
+            c = ff(c, d, a, b, x[k + 14], 17, 0xA679438E);
+            b = ff(b, c, d, a, x[k + 15], 22, 0x49B40821);
+            a = gg(a, b, c, d, x[k + 1], 5, 0xF61E2562);
+            d = gg(d, a, b, c, x[k + 6], 9, 0xC040B340);
+            c = gg(c, d, a, b, x[k + 11], 14, 0x265E5A51);
+            b = gg(b, c, d, a, x[k + 0], 20, 0xE9B6C7AA);
+            a = gg(a, b, c, d, x[k + 5], 5, 0xD62F105D);
+            d = gg(d, a, b, c, x[k + 10], 9, 0x2441453);
+            c = gg(c, d, a, b, x[k + 15], 14, 0xD8A1E681);
+            b = gg(b, c, d, a, x[k + 4], 20, 0xE7D3FBC8);
+            a = gg(a, b, c, d, x[k + 9], 5, 0x21E1CDE6);
+            d = gg(d, a, b, c, x[k + 14], 9, 0xC33707D6);
+            c = gg(c, d, a, b, x[k + 3], 14, 0xF4D50D87);
+            b = gg(b, c, d, a, x[k + 8], 20, 0x455A14ED);
+            a = gg(a, b, c, d, x[k + 13], 5, 0xA9E3E905);
+            d = gg(d, a, b, c, x[k + 2], 9, 0xFCEFA3F8);
+            c = gg(c, d, a, b, x[k + 7], 14, 0x676F02D9);
+            b = gg(b, c, d, a, x[k + 12], 20, 0x8D2A4C8A);
+            a = hh(a, b, c, d, x[k + 5], 4, 0xFFFA3942);
+            d = hh(d, a, b, c, x[k + 8], 11, 0x8771F681);
+            c = hh(c, d, a, b, x[k + 11], 16, 0x6D9D6122);
+            b = hh(b, c, d, a, x[k + 14], 23, 0xFDE5380C);
+            a = hh(a, b, c, d, x[k + 1], 4, 0xA4BEEA44);
+            d = hh(d, a, b, c, x[k + 4], 11, 0x4BDECFA9);
+            c = hh(c, d, a, b, x[k + 7], 16, 0xF6BB4B60);
+            b = hh(b, c, d, a, x[k + 10], 23, 0xBEBFBC70);
+            a = hh(a, b, c, d, x[k + 13], 4, 0x289B7EC6);
+            d = hh(d, a, b, c, x[k + 0], 11, 0xEAA127FA);
+            c = hh(c, d, a, b, x[k + 3], 16, 0xD4EF3085);
+            b = hh(b, c, d, a, x[k + 6], 23, 0x4881D05);
+            a = hh(a, b, c, d, x[k + 9], 4, 0xD9D4D039);
+            d = hh(d, a, b, c, x[k + 12], 11, 0xE6DB99E5);
+            c = hh(c, d, a, b, x[k + 15], 16, 0x1FA27CF8);
+            b = hh(b, c, d, a, x[k + 2], 23, 0xC4AC5665);
+            a = ii(a, b, c, d, x[k + 0], 6, 0xF4292244);
+            d = ii(d, a, b, c, x[k + 7], 10, 0x432AFF97);
+            c = ii(c, d, a, b, x[k + 14], 15, 0xAB9423A7);
+            b = ii(b, c, d, a, x[k + 5], 21, 0xFC93A039);
+            a = ii(a, b, c, d, x[k + 12], 6, 0x655B59C3);
+            d = ii(d, a, b, c, x[k + 3], 10, 0x8F0CCC92);
+            c = ii(c, d, a, b, x[k + 10], 15, 0xFFEFF47D);
+            b = ii(b, c, d, a, x[k + 1], 21, 0x85845DD1);
+            a = ii(a, b, c, d, x[k + 8], 6, 0x6FA87E4F);
+            d = ii(d, a, b, c, x[k + 15], 10, 0xFE2CE6E0);
+            c = ii(c, d, a, b, x[k + 6], 15, 0xA3014314);
+            b = ii(b, c, d, a, x[k + 13], 21, 0x4E0811A1);
+            a = ii(a, b, c, d, x[k + 4], 6, 0xF7537E82);
+            d = ii(d, a, b, c, x[k + 11], 10, 0xBD3AF235);
+            c = ii(c, d, a, b, x[k + 2], 15, 0x2AD7D2BB);
+            b = ii(b, c, d, a, x[k + 9], 21, 0xEB86D391);
+            a = addUnsigned(a, AA);
+            b = addUnsigned(b, BB);
+            c = addUnsigned(c, CC);
+            d = addUnsigned(d, DD);
+        }
+
+        return (wordToHex(a) + wordToHex(b) + wordToHex(c) + wordToHex(d)).toLowerCase();
+    }
+
+    /**
+     * Google Sheets Integration Class
      */
     class GoogleSheetsIntegration {
         constructor(spreadsheetId, sheetGid = '0') {
             this.spreadsheetId = spreadsheetId;
             this.sheetGid = sheetGid;
-            this.baseUrl = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/gviz/tq?tqx=out:json&tq&gid=${sheetGid}`;
+            this.baseUrl = 'https://docs.google.com/spreadsheets/d/';
         }
 
         /**
          * Fetch data from Google Sheets
-         * @returns {Promise<Array>} Array of row objects
          */
         async fetchData() {
+            const url = `${this.baseUrl}${this.spreadsheetId}/gviz/tq?tqx=out:csv&gid=${this.sheetGid}`;
+            
             try {
-                const response = await fetch(this.baseUrl);
-                const text = await response.text();
+                const response = await fetch(url);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
                 
-                // Remove JSONP wrapper
-                const jsonString = text.substring(47).slice(0, -2);
-                const data = JSON.parse(jsonString);
-                
-                return this.parseSheetData(data);
+                const csvText = await response.text();
+                return this.parseCSV(csvText);
             } catch (error) {
                 console.error('Error fetching Google Sheets data:', error);
                 throw error;
@@ -55,25 +211,30 @@
         }
 
         /**
-         * Parse the Google Sheets JSON response
-         * @param {Object} data - Raw Google Sheets JSON data
-         * @returns {Array} Parsed data array
+         * Parse CSV data into notification objects
          */
-        parseSheetData(data) {
-            if (!data.table || !data.table.rows) {
-                throw new Error('Invalid Google Sheets data structure');
-            }
+        parseCSV(csvText) {
+            const lines = csvText.split('\n').map(line => line.trim()).filter(line => line);
+            if (lines.length < 2) return [];
 
-            const rows = data.table.rows;
-            const headers = this.extractHeaders(data.table.cols);
+            // Parse header row
+            const headers = this.parseCSVLine(lines[0]).map(h => h.toLowerCase().trim());
             const notifications = [];
 
-            for (let i = 0; i < rows.length; i++) {
-                const row = rows[i];
-                if (!row.c) continue;
+            // Parse data rows
+            for (let i = 1; i < lines.length; i++) {
+                const values = this.parseCSVLine(lines[i]);
+                if (values.length < 4) continue;
 
-                const notification = this.parseRow(row.c, headers);
-                if (this.isValidNotification(notification)) {
+                const notification = {};
+                headers.forEach((header, index) => {
+                    if (values[index]) {
+                        notification[header] = values[index].trim();
+                    }
+                });
+
+                // Validate required fields
+                if (notification.name && notification.location && notification.product && notification.timestamp) {
                     notifications.push(notification);
                 }
             }
@@ -82,120 +243,53 @@
         }
 
         /**
-         * Extract headers from Google Sheets columns
-         * @param {Array} cols - Column definitions
-         * @returns {Array} Header names
+         * Parse a single CSV line handling quoted values
          */
-        extractHeaders(cols) {
-            return cols.map(col => {
-                if (col && col.label) {
-                    return col.label.toLowerCase().trim();
-                }
-                return '';
-            });
-        }
-
-        /**
-         * Parse a single row from Google Sheets
-         * @param {Array} cells - Row cells
-         * @param {Array} headers - Column headers
-         * @returns {Object} Parsed notification object
-         */
-        parseRow(cells, headers) {
-            const notification = {};
+        parseCSVLine(line) {
+            const result = [];
+            let current = '';
+            let inQuotes = false;
             
-            for (let i = 0; i < headers.length && i < cells.length; i++) {
-                const header = headers[i];
-                const cell = cells[i];
+            for (let i = 0; i < line.length; i++) {
+                const char = line[i];
                 
-                if (cell && cell.v !== null && cell.v !== undefined) {
-                    notification[header] = cell.v.toString().trim();
+                if (char === '"') {
+                    inQuotes = !inQuotes;
+                } else if (char === ',' && !inQuotes) {
+                    result.push(current);
+                    current = '';
+                } else {
+                    current += char;
                 }
             }
-
-            // Process timestamp if present
-            if (notification.timestamp) {
-                notification.timeAgo = this.formatTimeAgo(notification.timestamp);
-            }
-
-            return notification;
-        }
-
-        /**
-         * Validate notification data
-         * @param {Object} notification - Notification object
-         * @returns {boolean} Whether notification is valid
-         */
-        isValidNotification(notification) {
-            return notification.name && 
-                   notification.location && 
-                   notification.product;
-        }
-
-        /**
-         * Format timestamp to "time ago" format
-         * @param {string} timestamp - Timestamp string
-         * @returns {string} Formatted time ago string
-         */
-        formatTimeAgo(timestamp) {
-            try {
-                let date = new Date(timestamp);
-                
-                // If date is invalid, try parsing as different formats
-                if (isNaN(date.getTime())) {
-                    // Try parsing as MM/DD/YYYY format
-                    const parts = timestamp.split('/');
-                    if (parts.length === 3) {
-                        date = new Date(parts[2], parts[0] - 1, parts[1]);
-                    }
-                }
-                
-                // If still invalid, use a recent time
-                if (isNaN(date.getTime())) {
-                    const randomMins = Math.floor(Math.random() * 120) + 5; // 5-125 minutes ago
-                    date = new Date(Date.now() - (randomMins * 60000));
-                }
-                
-                const now = new Date();
-                const diffMs = now - date;
-                const diffMins = Math.floor(diffMs / 60000);
-                const diffHours = Math.floor(diffMins / 60);
-                const diffDays = Math.floor(diffHours / 24);
-
-                if (diffMins < 1) return 'just now';
-                if (diffMins < 60) return `${diffMins} minute${diffMins > 1 ? 's' : ''} ago`;
-                if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
-                return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
-            } catch (error) {
-                return 'recently';
-            }
+            
+            result.push(current);
+            return result;
         }
     }
 
     /**
-     * Social Proof Widget Main Class
+     * Social Proof Widget Class
      */
     class SocialProofWidget {
         constructor(config = {}) {
             this.config = {
-                spreadsheetId: '',
-                sheetGid: '0',
-                position: 'bottom-left',
-                primaryColor: '#667eea',
-                displayDuration: 4000,
-                delayBetween: 3000,
-                maxNotifications: 5,
-                hideAfter: 10,
-                showVerification: true,
-                verificationText: 'Verified by Google',
-                showTimeAgo: true,
-                ...config
+                spreadsheetId: config.spreadsheetId || '',
+                sheetGid: config.sheetGid || '0',
+                position: config.position || 'bottom-left',
+                primaryColor: config.primaryColor || '#667eea',
+                displayDuration: parseInt(config.displayDuration) || 4000,
+                delayBetween: parseInt(config.delayBetween) || 3000,
+                maxNotifications: parseInt(config.maxNotifications) || 5,
+                hideAfter: parseInt(config.hideAfter) || 10,
+                showVerification: config.showVerification !== 'false',
+                verificationText: config.verificationText || 'Verified by Google',
+                showTimeAgo: config.showTimeAgo !== 'false'
             };
 
             this.notifications = [];
             this.currentIndex = 0;
             this.displayCount = 0;
-            this.isVisible = false;
             this.container = null;
             this.sheetsIntegration = null;
 
@@ -248,56 +342,49 @@
                 {
                     name: 'Tyler',
                     location: 'La Jolla',
-                    product: 'HL Pro Tools',
-                    action: 'just purchased',
-                    timeAgo: '2 minutes ago',
-                    picture: '⭐'
+                    product: 'SaaStember',
+                    timestamp: new Date(Date.now() - 2 * 60 * 1000).toISOString(),
+                    email: 'matthew.deseno@gmail.com',
+                    action: 'is enjoying'
                 },
                 {
                     name: 'Randy',
                     location: 'the US',
-                    product: 'HL Pro Tools',
-                    action: 'just purchased',
-                    timeAgo: '5 minutes ago',
-                    email: 'randy@example.com'
+                    product: 'HLPT',
+                    timestamp: new Date(Date.now() - 5 * 60 * 1000).toISOString(),
+                    email: 'randy@example.com',
+                    action: 'just purchased'
                 },
                 {
                     name: 'Sarah Johnson',
                     location: 'Los Angeles',
-                    product: 'Basic Plan',
-                    action: 'signed up for',
-                    timeAgo: '8 minutes ago',
-                    picture: '👩‍💼'
+                    product: 'SaaStember',
+                    timestamp: new Date(Date.now() - 8 * 60 * 1000).toISOString(),
+                    picture: '🧑',
+                    action: 'signed up for'
                 },
                 {
                     name: 'Michael Brown',
                     location: 'Chicago',
-                    product: 'Pro Plan',
-                    action: 'upgraded to',
-                    timeAgo: '12 minutes ago',
-                    picture: '🧑‍💻'
+                    product: 'HLPT',
+                    timestamp: new Date(Date.now() - 12 * 60 * 1000).toISOString(),
+                    picture: '👨',
+                    action: 'upgraded to'
                 }
             ];
         }
 
         /**
-         * Create the widget DOM element
+         * Create the widget container and apply styles
          */
         createWidget() {
-            // Remove existing widget if present
-            const existing = document.getElementById('social-proof-widget');
-            if (existing) {
-                existing.remove();
-            }
+            // Apply styles first
+            this.applyStyles();
 
             // Create container
             this.container = document.createElement('div');
-            this.container.id = 'social-proof-widget';
             this.container.className = 'social-proof-widget';
             this.container.innerHTML = this.getWidgetHTML();
-
-            // Apply styles
-            this.applyStyles();
 
             // Add to page
             document.body.appendChild(this.container);
@@ -316,9 +403,7 @@
             return `
                 <div class="spw-notification" id="spw-notification">
                     <div class="spw-content">
-                        <div class="spw-avatar">
-                            <div class="spw-avatar-placeholder"></div>
-                        </div>
+                        <div class="spw-avatar"></div>
                         <div class="spw-text">
                             <div class="spw-message"></div>
                             <div class="spw-time"></div>
@@ -347,31 +432,24 @@
 
         /**
          * Generate secondary color from primary color
-         * @param {string} primaryColor - Primary hex color
-         * @returns {string} Secondary hex color
          */
         generateSecondaryColor(primaryColor) {
-            // Remove # if present
             const hex = primaryColor.replace('#', '');
-            
-            // Parse RGB values
             const r = parseInt(hex.substr(0, 2), 16);
             const g = parseInt(hex.substr(2, 2), 16);
             const b = parseInt(hex.substr(4, 2), 16);
             
-            // Darken by 20% and shift hue slightly
             const factor = 0.8;
             const newR = Math.round(r * factor);
-            const newG = Math.round(g * factor * 0.9); // Slight hue shift
-            const newB = Math.round(b * factor * 1.1); // Slight hue shift
+            const newG = Math.round(g * factor * 0.9);
+            const newB = Math.round(b * factor * 1.1);
             
-            // Convert back to hex
             const toHex = (n) => Math.max(0, Math.min(255, n)).toString(16).padStart(2, '0');
             return `#${toHex(newR)}${toHex(newG)}${toHex(newB)}`;
         }
 
         /**
-         * Get widget CSS styles
+         * Get widget CSS styles - matches demo exactly
          */
         getWidgetCSS() {
             const position = this.getPositionStyles();
@@ -380,14 +458,15 @@
             
             return `
                 .social-proof-widget {
-                    position: fixed;
+                    position: fixed !important;
                     ${position}
-                    z-index: 10000;
-                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                    z-index: 9999 !important;
+                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
                     opacity: 0;
                     transform: translateY(20px);
                     transition: all 0.3s ease-in-out;
                     pointer-events: none;
+                    max-width: 380px !important;
                 }
 
                 .social-proof-widget.spw-visible {
@@ -397,15 +476,14 @@
                 }
 
                 .spw-notification {
-                    background: rgba(255, 255, 255, 0.98);
-                    border-radius: 12px;
-                    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
-                    padding: 16px 20px;
-                    max-width: 380px;
-                    min-width: 320px;
+                    background: rgba(255, 255, 255, 0.98) !important;
+                    border-radius: 12px !important;
+                    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12) !important;
+                    padding: 16px 20px !important;
                     position: relative;
                     backdrop-filter: blur(10px);
-                    border: 1px solid rgba(0, 0, 0, 0.08);
+                    border: 1px solid rgba(0, 0, 0, 0.08) !important;
+                    font-family: inherit !important;
                 }
 
                 .spw-notification:hover .spw-close {
@@ -413,115 +491,114 @@
                 }
 
                 .spw-content {
-                    display: flex;
-                    align-items: flex-start;
-                    gap: 12px;
+                    display: flex !important;
+                    align-items: flex-start !important;
+                    gap: 12px !important;
                 }
 
                 .spw-avatar {
-                    flex-shrink: 0;
-                    margin-top: 2px;
+                    width: 48px !important;
+                    height: 48px !important;
+                    border-radius: 12px !important;
+                    background: linear-gradient(135deg, ${primaryColor} 0%, ${secondaryColor} 100%) !important;
+                    display: flex !important;
+                    align-items: center !important;
+                    justify-content: center !important;
+                    color: white !important;
+                    font-weight: 600 !important;
+                    font-size: 18px !important;
+                    overflow: hidden !important;
+                    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
+                    flex-shrink: 0 !important;
+                    margin-top: 2px !important;
+                    font-family: inherit !important;
                 }
 
-                .spw-avatar-placeholder {
-                    width: 48px;
-                    height: 48px;
-                    border-radius: 12px;
-                    background: linear-gradient(135deg, ${primaryColor} 0%, ${secondaryColor} 100%);
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    color: white;
-                    font-weight: 600;
-                    font-size: 18px;
-                    overflow: hidden;
-                    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-                }
-
-                .spw-avatar-image {
-                    width: 100%;
-                    height: 100%;
-                    border-radius: 12px;
-                    object-fit: cover;
-                }
-
-                .spw-avatar-emoji {
-                    font-size: 24px;
-                    line-height: 1;
+                .spw-avatar img {
+                    width: 100% !important;
+                    height: 100% !important;
+                    border-radius: 12px !important;
+                    object-fit: cover !important;
                 }
 
                 .spw-text {
-                    flex: 1;
+                    flex: 1 !important;
                     min-width: 0;
-                    padding-top: 2px;
+                    padding-top: 2px !important;
                 }
 
                 .spw-message {
-                    font-weight: 500;
-                    font-size: 15px;
-                    color: #1f2937;
-                    line-height: 1.4;
-                    margin-bottom: 4px;
+                    font-weight: 500 !important;
+                    font-size: 15px !important;
+                    color: #1f2937 !important;
+                    line-height: 1.4 !important;
+                    margin-bottom: 4px !important;
+                    font-family: inherit !important;
                 }
 
                 .spw-time {
-                    font-size: 13px;
-                    color: #6b7280;
-                    font-weight: 400;
+                    font-size: 13px !important;
+                    color: #6b7280 !important;
+                    font-weight: 400 !important;
+                    font-family: inherit !important;
                 }
 
                 .spw-close {
-                    position: absolute;
-                    top: 12px;
-                    right: 12px;
-                    width: 24px;
-                    height: 24px;
-                    border-radius: 6px;
-                    background: rgba(0, 0, 0, 0.05);
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    cursor: pointer;
-                    font-size: 16px;
-                    line-height: 1;
-                    color: #6b7280;
+                    position: absolute !important;
+                    top: 12px !important;
+                    right: 12px !important;
+                    width: 24px !important;
+                    height: 24px !important;
+                    border-radius: 6px !important;
+                    background: rgba(0, 0, 0, 0.05) !important;
+                    display: flex !important;
+                    align-items: center !important;
+                    justify-content: center !important;
+                    cursor: pointer !important;
+                    font-size: 16px !important;
+                    line-height: 1 !important;
+                    color: #6b7280 !important;
                     opacity: 0;
                     transition: all 0.2s ease;
-                    font-weight: 400;
+                    font-weight: 400 !important;
+                    font-family: inherit !important;
+                    border: none !important;
                 }
 
                 .spw-close:hover {
-                    background: rgba(0, 0, 0, 0.1);
+                    background: rgba(0, 0, 0, 0.1) !important;
                     transform: scale(1.1);
                 }
 
                 .spw-verification {
-                    margin-top: 12px;
-                    padding-top: 12px;
-                    border-top: 1px solid rgba(0, 0, 0, 0.08);
-                    font-size: 12px;
-                    color: #6b7280;
-                    display: flex;
-                    align-items: center;
-                    gap: 6px;
-                    font-weight: 400;
+                    margin-top: 12px !important;
+                    padding-top: 12px !important;
+                    border-top: 1px solid rgba(0, 0, 0, 0.08) !important;
+                    font-size: 12px !important;
+                    color: #6b7280 !important;
+                    display: flex !important;
+                    align-items: center !important;
+                    gap: 6px !important;
+                    font-weight: 400 !important;
+                    font-family: inherit !important;
                 }
 
                 .spw-verification-icon {
-                    color: #10b981;
-                    font-weight: 600;
-                    font-size: 12px;
+                    color: #10b981 !important;
+                    font-weight: 600 !important;
+                    font-size: 12px !important;
+                    font-family: inherit !important;
                 }
 
                 .spw-verification-text {
                     flex: 1;
+                    font-family: inherit !important;
                 }
 
                 @media (max-width: 480px) {
-                    .spw-notification {
-                        max-width: calc(100vw - 40px);
-                        min-width: calc(100vw - 40px);
-                        margin: 0 20px;
+                    .social-proof-widget {
+                        max-width: calc(100vw - 40px) !important;
+                        margin: 0 20px !important;
                     }
                 }
             `;
@@ -551,268 +628,256 @@
             this.currentIndex = 0;
             this.displayCount = 0;
 
-            // Start showing notifications
+            // Start first notification after initial delay
             setTimeout(() => {
-                this.showNextNotification();
-            }, 1000);
+                this.displayNextNotification();
+            }, 2000);
         }
 
         /**
-         * Show the next notification in the cycle
+         * Display the next notification in the cycle
          */
-        showNextNotification() {
-            // Check if we should stop showing notifications
+        displayNextNotification() {
             if (this.displayCount >= this.config.hideAfter) {
-                this.hide();
+                this.container.style.display = 'none';
                 return;
-            }
-
-            // Reset index if we've shown all notifications
-            if (this.currentIndex >= this.notifications.length) {
-                this.currentIndex = 0;
             }
 
             const notification = this.notifications[this.currentIndex];
             this.displayNotification(notification);
-            
-            this.currentIndex++;
+
+            this.currentIndex = (this.currentIndex + 1) % this.notifications.length;
             this.displayCount++;
 
             // Schedule next notification
             setTimeout(() => {
                 this.hideNotification();
                 setTimeout(() => {
-                    this.showNextNotification();
+                    this.displayNextNotification();
                 }, this.config.delayBetween);
             }, this.config.displayDuration);
         }
 
         /**
-         * Display a notification
+         * Display a specific notification
          */
-        displayNotification(notification) {
+        async displayNotification(notification) {
             const messageEl = this.container.querySelector('.spw-message');
             const timeEl = this.container.querySelector('.spw-time');
-            const avatarEl = this.container.querySelector('.spw-avatar-placeholder');
+            const avatarEl = this.container.querySelector('.spw-avatar');
 
-            // Build message text
+            // Update message
             const action = notification.action || 'purchased';
-            const messageText = `${notification.name} in ${notification.location} ${action} ${notification.product}`;
-            
-            // Update content
-            messageEl.textContent = messageText;
-            
-            // Conditionally show time based on showTimeAgo setting
+            messageEl.textContent = `${notification.name} in ${notification.location} ${action} ${notification.product}`;
+
+            // Update time
             if (this.config.showTimeAgo) {
-                timeEl.textContent = notification.timeAgo || 'recently';
+                timeEl.textContent = this.formatTimeAgo(notification.timestamp);
                 timeEl.style.display = 'block';
             } else {
                 timeEl.style.display = 'none';
             }
-            
-            // Handle profile picture
-            this.setAvatar(avatarEl, notification);
 
-            // Show notification
-            this.container.classList.add('spw-visible');
-            this.isVisible = true;
+            // Update avatar with Gravatar support
+            await this.updateAvatar(avatarEl, notification);
+
+            // Show widget
+            this.showNotification();
         }
 
         /**
-         * Set avatar based on available data
-         * @param {HTMLElement} avatarEl - Avatar container element
-         * @param {Object} notification - Notification data
+         * Update avatar with Gravatar, emoji, or initials
          */
-        setAvatar(avatarEl, notification) {
-            // Clear previous content
+        async updateAvatar(avatarEl, notification) {
+            // Clear current content
             avatarEl.innerHTML = '';
-            avatarEl.className = 'spw-avatar-placeholder';
+            
+            console.log('Updating avatar for:', notification.name, 'Email:', notification.email);
 
-            // Priority 1: Emoji from picture field
-            if (notification.picture && this.isEmoji(notification.picture)) {
-                avatarEl.innerHTML = `<span class="spw-avatar-emoji">${notification.picture}</span>`;
-                return;
+            // Try Gravatar first if email is provided
+            if (notification.email && notification.email.includes('@')) {
+                console.log('Attempting Gravatar for:', notification.email);
+                const gravatarWorked = await this.tryGravatar(avatarEl, notification);
+                if (gravatarWorked) {
+                    console.log('✅ Gravatar loaded successfully for:', notification.email);
+                    return;
+                }
+                console.log('❌ Gravatar failed for:', notification.email);
             }
 
-            // Priority 2: Gravatar from email
-            if (notification.email && this.isValidEmail(notification.email)) {
-                const gravatarUrl = this.getGravatarUrl(notification.email);
+            // Try emoji/picture
+            if (notification.picture) {
+                if (this.isEmoji(notification.picture)) {
+                    console.log('Using emoji:', notification.picture);
+                    avatarEl.innerHTML = `<span style="font-size: 24px; line-height: 1;">${notification.picture}</span>`;
+                    return;
+                } else if (notification.picture.startsWith('http')) {
+                    console.log('Trying image URL:', notification.picture);
+                    const img = document.createElement('img');
+                    img.src = notification.picture;
+                    img.alt = notification.name;
+                    img.style.cssText = 'width: 100%; height: 100%; border-radius: 12px; object-fit: cover;';
+                    
+                    img.onload = () => {
+                        console.log('✅ Image loaded successfully');
+                        avatarEl.innerHTML = '';
+                        avatarEl.appendChild(img);
+                    };
+                    
+                    img.onerror = () => {
+                        console.log('❌ Image failed, using initials');
+                        this.setInitials(avatarEl, notification.name);
+                    };
+                    return;
+                }
+            }
+
+            // Fallback to initials
+            console.log('Using initials for:', notification.name);
+            this.setInitials(avatarEl, notification.name);
+        }
+
+        /**
+         * Try to load Gravatar image
+         */
+        async tryGravatar(avatarEl, notification) {
+            return new Promise((resolve) => {
+                const email = notification.email.toLowerCase().trim();
+                const emailHash = md5(email);
+                const gravatarUrl = `https://www.gravatar.com/avatar/${emailHash}?s=96&d=404`;
+                
+                console.log('Email:', email);
+                console.log('MD5 Hash:', emailHash);
+                console.log('Gravatar URL:', gravatarUrl);
+                
                 const img = document.createElement('img');
-                img.className = 'spw-avatar-image';
                 img.src = gravatarUrl;
                 img.alt = notification.name;
+                img.style.cssText = 'width: 100%; height: 100%; border-radius: 12px; object-fit: cover;';
                 
-                // Fallback to initials if Gravatar fails to load
-                img.onerror = () => {
+                img.onload = () => {
+                    console.log('✅ Gravatar image loaded successfully');
                     avatarEl.innerHTML = '';
-                    avatarEl.textContent = notification.name.charAt(0).toUpperCase();
+                    avatarEl.appendChild(img);
+                    resolve(true);
                 };
                 
-                avatarEl.appendChild(img);
-                return;
-            }
-
-            // Priority 3: URL from picture field
-            if (notification.picture && this.isValidUrl(notification.picture)) {
-                const img = document.createElement('img');
-                img.className = 'spw-avatar-image';
-                img.src = notification.picture;
-                img.alt = notification.name;
-                
-                // Fallback to initials if image fails to load
                 img.onerror = () => {
-                    avatarEl.innerHTML = '';
-                    avatarEl.textContent = notification.name.charAt(0).toUpperCase();
+                    console.log('❌ Gravatar not found or failed to load');
+                    resolve(false);
                 };
                 
-                avatarEl.appendChild(img);
-                return;
-            }
-
-            // Fallback: First letter of name
-            avatarEl.textContent = notification.name.charAt(0).toUpperCase();
+                // Timeout after 3 seconds
+                setTimeout(() => {
+                    if (!avatarEl.querySelector('img')) {
+                        console.log('❌ Gravatar timeout');
+                        resolve(false);
+                    }
+                }, 3000);
+            });
         }
 
         /**
-         * Check if a string is an emoji
-         * @param {string} str - String to check
-         * @returns {boolean} Whether the string is an emoji
+         * Set initials in avatar
+         */
+        setInitials(avatarEl, name) {
+            const initials = name.charAt(0).toUpperCase();
+            avatarEl.textContent = initials;
+        }
+
+        /**
+         * Check if string is an emoji
          */
         isEmoji(str) {
-            const emojiRegex = /^[\u{1F600}-\u{1F64F}]|[\u{1F300}-\u{1F5FF}]|[\u{1F680}-\u{1F6FF}]|[\u{1F1E0}-\u{1F1FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]|[\u{2B50}]$/u;
-            return emojiRegex.test(str.trim());
+            return /^[\u{1F600}-\u{1F64F}]|[\u{1F300}-\u{1F5FF}]|[\u{1F680}-\u{1F6FF}]|[\u{1F1E0}-\u{1F1FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]|[\u{2B50}]$/u.test(str.trim());
         }
 
         /**
-         * Check if a string is a valid email
-         * @param {string} email - Email to validate
-         * @returns {boolean} Whether the email is valid
+         * Show notification with animation
          */
-        isValidEmail(email) {
-            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-            return emailRegex.test(email);
+        showNotification() {
+            this.container.classList.add('spw-visible');
         }
 
         /**
-         * Check if a string is a valid URL
-         * @param {string} url - URL to validate
-         * @returns {boolean} Whether the URL is valid
-         */
-        isValidUrl(url) {
-            try {
-                new URL(url);
-                return true;
-            } catch {
-                return false;
-            }
-        }
-
-        /**
-         * Generate Gravatar URL from email
-         * @param {string} email - Email address
-         * @returns {string} Gravatar URL
-         */
-        getGravatarUrl(email) {
-            // Simple MD5 hash implementation for Gravatar
-            const hash = this.md5(email.toLowerCase().trim());
-            return `https://www.gravatar.com/avatar/${hash}?s=96&d=mp&r=g`;
-        }
-
-        /**
-         * Simple MD5 hash implementation
-         * @param {string} str - String to hash
-         * @returns {string} MD5 hash
-         */
-        md5(str) {
-            // This is a simplified MD5 implementation for Gravatar
-            // In production, you might want to use a proper crypto library
-            let hash = 0;
-            if (str.length === 0) return hash.toString(16);
-            for (let i = 0; i < str.length; i++) {
-                const char = str.charCodeAt(i);
-                hash = ((hash << 5) - hash) + char;
-                hash = hash & hash; // Convert to 32-bit integer
-            }
-            return Math.abs(hash).toString(16);
-        }
-
-        /**
-         * Hide current notification
+         * Hide notification with animation
          */
         hideNotification() {
             this.container.classList.remove('spw-visible');
-            this.isVisible = false;
         }
 
         /**
-         * Hide the widget completely
+         * Format timestamp to relative time
          */
-        hide() {
-            if (this.container) {
-                this.container.style.display = 'none';
-            }
-        }
-
-        /**
-         * Show the widget
-         */
-        show() {
-            if (this.container) {
-                this.container.style.display = 'block';
-                this.displayCount = 0;
-                this.startDisplayCycle();
-            }
-        }
-
-        /**
-         * Update configuration
-         */
-        updateConfig(newConfig) {
-            this.config = { ...this.config, ...newConfig };
-            
-            if (newConfig.spreadsheetId && newConfig.spreadsheetId !== this.config.spreadsheetId) {
-                this.init();
-            } else {
-                // Recreate widget with new config
-                this.createWidget();
-            }
-        }
-
-        /**
-         * Destroy the widget
-         */
-        destroy() {
-            if (this.container) {
-                this.container.remove();
-            }
-            
-            const styles = document.getElementById('social-proof-widget-styles');
-            if (styles) {
-                styles.remove();
+        formatTimeAgo(timestamp) {
+            try {
+                let date;
+                
+                // Try parsing the timestamp
+                if (timestamp.includes('/')) {
+                    // Handle MM/DD/YYYY format
+                    const parts = timestamp.split('/');
+                    if (parts.length === 3) {
+                        date = new Date(parts[2], parts[0] - 1, parts[1]);
+                    }
+                } else {
+                    date = new Date(timestamp);
+                }
+                
+                // Check if date is valid
+                if (isNaN(date.getTime())) {
+                    // Fallback to random recent time for demo
+                    const randomMinutes = Math.floor(Math.random() * 120) + 5; // 5-125 minutes ago
+                    date = new Date(Date.now() - randomMinutes * 60 * 1000);
+                }
+                
+                const now = new Date();
+                const diffInSeconds = Math.floor((now - date) / 1000);
+                
+                if (diffInSeconds < 60) {
+                    return 'just now';
+                } else if (diffInSeconds < 3600) {
+                    const minutes = Math.floor(diffInSeconds / 60);
+                    return `${minutes} minute${minutes !== 1 ? 's' : ''} ago`;
+                } else if (diffInSeconds < 86400) {
+                    const hours = Math.floor(diffInSeconds / 3600);
+                    return `${hours} hour${hours !== 1 ? 's' : ''} ago`;
+                } else {
+                    const days = Math.floor(diffInSeconds / 86400);
+                    return `${days} day${days !== 1 ? 's' : ''} ago`;
+                }
+            } catch (error) {
+                console.error('Error formatting time:', error);
+                return 'recently';
             }
         }
     }
 
-    // Auto-initialize if configuration is provided via data attributes
+    /**
+     * Auto-initialize widget from script tag data attributes
+     */
     function autoInitialize() {
-        const script = document.querySelector('script[data-spreadsheet-id]');
-        if (script) {
+        const scripts = document.querySelectorAll('script[src*="hlpt-spw.js"]');
+        
+        scripts.forEach(script => {
             const config = {
-                spreadsheetId: script.getAttribute('data-spreadsheet-id'),
-                sheetGid: script.getAttribute('data-sheet-gid') || '0',
-                position: script.getAttribute('data-position') || 'bottom-left',
-                primaryColor: script.getAttribute('data-primary-color') || '#667eea',
-                displayDuration: parseInt(script.getAttribute('data-display-duration')) || 4000,
-                delayBetween: parseInt(script.getAttribute('data-delay-between')) || 3000,
-                maxNotifications: parseInt(script.getAttribute('data-max-notifications')) || 5,
-                hideAfter: parseInt(script.getAttribute('data-hide-after')) || 10,
-                showVerification: script.getAttribute('data-show-verification') !== 'false',
-                verificationText: script.getAttribute('data-verification-text') || 'Verified by Google',
-                showTimeAgo: script.getAttribute('data-show-time-ago') !== 'false'
+                spreadsheetId: script.dataset.spreadsheetId || '',
+                sheetGid: script.dataset.sheetGid || '0',
+                position: script.dataset.position || 'bottom-left',
+                primaryColor: script.dataset.primaryColor || '#667eea',
+                displayDuration: script.dataset.displayDuration || '4000',
+                delayBetween: script.dataset.delayBetween || '3000',
+                maxNotifications: script.dataset.maxNotifications || '5',
+                hideAfter: script.dataset.hideAfter || '10',
+                showVerification: script.dataset.showVerification !== 'false',
+                verificationText: script.dataset.verificationText || 'Verified by Google',
+                showTimeAgo: script.dataset.showTimeAgo !== 'false'
             };
 
-            window.socialProofWidget = new SocialProofWidget(config);
-        }
+            if (config.spreadsheetId) {
+                new SocialProofWidget(config);
+            }
+        });
     }
 
     // Initialize when DOM is ready
@@ -822,9 +887,8 @@
         autoInitialize();
     }
 
-    // Make classes available globally
+    // Export for manual initialization
     window.SocialProofWidget = SocialProofWidget;
-    window.GoogleSheetsIntegration = GoogleSheetsIntegration;
 
 })();
 
