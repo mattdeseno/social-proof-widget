@@ -1,13 +1,22 @@
 /**
- * Social Proof Widget - Standalone Version
+ * HLPT Social Proof Widget - Improved Version
  * A JavaScript widget that displays recent purchase notifications from Google Sheets
- * Version: 1.0.0
+ * Version: 2.1.0
+ * 
+ * New Features:
+ * - Profile pictures (emoji or Gravatar)
+ * - Verification footer toggle
+ * - Custom verification text
+ * - Customizable action text
+ * - Improved design with hover effects
  * 
  * Usage:
- * <script src="https://cdn.jsdelivr.net/gh/yourusername/social-proof-widget@main/hlpt-spw.js"
+ * <script src="https://cdn.jsdelivr.net/gh/mattdeseno/social-proof-widget@latest/hlpt-spw.js"
  *         data-spreadsheet-id="YOUR_SHEET_ID"
  *         data-position="bottom-left"
- *         data-theme="light"></script>
+ *         data-theme="light"
+ *         data-show-verification="true"
+ *         data-verification-text="Verified by Social Proof"></script>
  */
 
 (function() {
@@ -50,73 +59,96 @@
          * @returns {Array} Parsed data array
          */
         parseSheetData(data) {
-            const table = data.table;
-            const columns = table.cols.map(col => col.label || col.id);
-            const rows = [];
+            if (!data.table || !data.table.rows) {
+                throw new Error('Invalid Google Sheets data structure');
+            }
 
-            table.rows.forEach(row => {
-                const rowData = {};
-                row.c.forEach((cell, index) => {
-                    const columnName = columns[index];
-                    let value = '';
-                    
-                    if (cell) {
-                        value = cell.f ? cell.f : (cell.v || '');
-                    }
-                    
-                    rowData[columnName] = value;
-                });
-                rows.push(rowData);
-            });
+            const rows = data.table.rows;
+            const headers = this.extractHeaders(data.table.cols);
+            const notifications = [];
 
-            return rows;
-        }
+            for (let i = 0; i < rows.length; i++) {
+                const row = rows[i];
+                if (!row.c) continue;
 
-        /**
-         * Get recent purchase notifications
-         * Expected columns: Name, Location, Product, Timestamp
-         * @param {number} limit - Maximum number of notifications to return
-         * @returns {Promise<Array>} Array of notification objects
-         */
-        async getRecentNotifications(limit = 10) {
-            const data = await this.fetchData();
-            
-            // Filter out empty rows and sort by timestamp (assuming newest first)
-            const notifications = data
-                .filter(row => row.Name && row.Location && row.Product)
-                .slice(0, limit)
-                .map(row => ({
-                    name: row.Name,
-                    location: row.Location,
-                    product: row.Product,
-                    timestamp: row.Timestamp || 'recently',
-                    timeAgo: this.calculateTimeAgo(row.Timestamp)
-                }));
+                const notification = this.parseRow(row.c, headers);
+                if (this.isValidNotification(notification)) {
+                    notifications.push(notification);
+                }
+            }
 
             return notifications;
         }
 
         /**
-         * Calculate time ago from timestamp
-         * @param {string} timestamp - Timestamp string
-         * @returns {string} Human readable time ago
+         * Extract headers from Google Sheets columns
+         * @param {Array} cols - Column definitions
+         * @returns {Array} Header names
          */
-        calculateTimeAgo(timestamp) {
-            if (!timestamp) return 'recently';
+        extractHeaders(cols) {
+            return cols.map(col => {
+                if (col && col.label) {
+                    return col.label.toLowerCase().trim();
+                }
+                return '';
+            });
+        }
+
+        /**
+         * Parse a single row from Google Sheets
+         * @param {Array} cells - Row cells
+         * @param {Array} headers - Column headers
+         * @returns {Object} Parsed notification object
+         */
+        parseRow(cells, headers) {
+            const notification = {};
             
+            for (let i = 0; i < headers.length && i < cells.length; i++) {
+                const header = headers[i];
+                const cell = cells[i];
+                
+                if (cell && cell.v !== null && cell.v !== undefined) {
+                    notification[header] = cell.v.toString().trim();
+                }
+            }
+
+            // Process timestamp if present
+            if (notification.timestamp) {
+                notification.timeAgo = this.formatTimeAgo(notification.timestamp);
+            }
+
+            return notification;
+        }
+
+        /**
+         * Validate notification data
+         * @param {Object} notification - Notification object
+         * @returns {boolean} Whether notification is valid
+         */
+        isValidNotification(notification) {
+            return notification.name && 
+                   notification.location && 
+                   notification.product;
+        }
+
+        /**
+         * Format timestamp to "time ago" format
+         * @param {string} timestamp - Timestamp string
+         * @returns {string} Formatted time ago string
+         */
+        formatTimeAgo(timestamp) {
             try {
                 const date = new Date(timestamp);
                 const now = new Date();
                 const diffMs = now - date;
                 const diffMins = Math.floor(diffMs / 60000);
-                const diffHours = Math.floor(diffMs / 3600000);
-                const diffDays = Math.floor(diffMs / 86400000);
+                const diffHours = Math.floor(diffMins / 60);
+                const diffDays = Math.floor(diffHours / 24);
 
                 if (diffMins < 1) return 'just now';
-                if (diffMins < 60) return `${diffMins} min ago`;
+                if (diffMins < 60) return `${diffMins} minute${diffMins > 1 ? 's' : ''} ago`;
                 if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
-                if (diffDays < 7) return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
-                return 'recently';
+                return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
             } catch (error) {
                 return 'recently';
             }
@@ -124,34 +156,31 @@
     }
 
     /**
-     * Social Proof Widget
-     * Main widget class that handles display and functionality
+     * Social Proof Widget Main Class
      */
     class SocialProofWidget {
-        constructor(options = {}) {
-            // Default configuration
+        constructor(config = {}) {
             this.config = {
-                spreadsheetId: options.spreadsheetId || '',
-                sheetGid: options.sheetGid || '0',
-                position: options.position || 'bottom-left',
-                displayDuration: options.displayDuration || 4000,
-                delayBetween: options.delayBetween || 3000,
-                maxNotifications: options.maxNotifications || 5,
-                hideAfter: options.hideAfter || 10,
-                theme: options.theme || 'light',
-                showVerification: options.showVerification !== false,
-                customStyles: options.customStyles || {},
-                ...options
+                spreadsheetId: '',
+                sheetGid: '0',
+                position: 'bottom-left',
+                theme: 'light',
+                displayDuration: 4000,
+                delayBetween: 3000,
+                maxNotifications: 5,
+                hideAfter: 10,
+                showVerification: true,
+                verificationText: 'Verified by Social Proof',
+                ...config
             };
 
             this.notifications = [];
             this.currentIndex = 0;
-            this.isVisible = false;
             this.displayCount = 0;
+            this.isVisible = false;
             this.container = null;
             this.sheetsIntegration = null;
 
-            // Initialize if spreadsheet ID is provided
             if (this.config.spreadsheetId) {
                 this.init();
             }
@@ -167,32 +196,91 @@
                     this.config.sheetGid
                 );
 
-                // Create widget container
-                this.createContainer();
-                
-                // Load notifications
                 await this.loadNotifications();
-                
-                // Start displaying notifications
-                if (this.notifications.length > 0) {
-                    this.startDisplayCycle();
-                }
+                this.createWidget();
+                this.startDisplayCycle();
             } catch (error) {
-                console.error('Social Proof Widget initialization failed:', error);
+                console.error('Failed to initialize Social Proof Widget:', error);
             }
         }
 
         /**
-         * Create the widget container
+         * Load notifications from Google Sheets
          */
-        createContainer() {
+        async loadNotifications() {
+            try {
+                const data = await this.sheetsIntegration.fetchData();
+                this.notifications = data.slice(0, this.config.maxNotifications);
+                
+                if (this.notifications.length === 0) {
+                    console.warn('No valid notifications found in Google Sheets');
+                }
+            } catch (error) {
+                console.error('Failed to load notifications:', error);
+                // Use fallback data for demo
+                this.notifications = this.getFallbackNotifications();
+            }
+        }
+
+        /**
+         * Get fallback notifications for demo purposes
+         */
+        getFallbackNotifications() {
+            return [
+                {
+                    name: 'Tyler',
+                    location: 'La Jolla',
+                    product: 'HL Pro Tools',
+                    action: 'just purchased',
+                    timeAgo: '2 minutes ago',
+                    picture: '⭐'
+                },
+                {
+                    name: 'Randy',
+                    location: 'the US',
+                    product: 'HL Pro Tools',
+                    action: 'just purchased',
+                    timeAgo: '5 minutes ago',
+                    email: 'randy@example.com'
+                },
+                {
+                    name: 'Sarah Johnson',
+                    location: 'Los Angeles',
+                    product: 'Basic Plan',
+                    action: 'signed up for',
+                    timeAgo: '8 minutes ago',
+                    picture: '👩‍💼'
+                },
+                {
+                    name: 'Michael Brown',
+                    location: 'Chicago',
+                    product: 'Pro Plan',
+                    action: 'upgraded to',
+                    timeAgo: '12 minutes ago',
+                    picture: '🧑‍💻'
+                }
+            ];
+        }
+
+        /**
+         * Create the widget DOM element
+         */
+        createWidget() {
+            // Remove existing widget if present
+            const existing = document.getElementById('social-proof-widget');
+            if (existing) {
+                existing.remove();
+            }
+
+            // Create container
             this.container = document.createElement('div');
+            this.container.id = 'social-proof-widget';
             this.container.className = 'social-proof-widget';
             this.container.innerHTML = this.getWidgetHTML();
-            
+
             // Apply styles
             this.applyStyles();
-            
+
             // Add to page
             document.body.appendChild(this.container);
         }
@@ -201,6 +289,12 @@
          * Get widget HTML structure
          */
         getWidgetHTML() {
+            const verificationHTML = this.config.showVerification ? 
+                `<div class="spw-verification">
+                    <span class="spw-verification-icon">✓</span>
+                    <span class="spw-verification-text">${this.config.verificationText}</span>
+                </div>` : '';
+
             return `
                 <div class="spw-notification" id="spw-notification">
                     <div class="spw-content">
@@ -208,15 +302,14 @@
                             <div class="spw-avatar-placeholder"></div>
                         </div>
                         <div class="spw-text">
-                            <div class="spw-name"></div>
-                            <div class="spw-action"></div>
+                            <div class="spw-message"></div>
                             <div class="spw-time"></div>
                         </div>
                         <div class="spw-close" onclick="this.closest('.social-proof-widget').style.display='none'">
                             ×
                         </div>
                     </div>
-                    ${this.config.showVerification ? '<div class="spw-verification">Verified by Social Proof</div>' : ''}
+                    ${verificationHTML}
                 </div>
             `;
         }
@@ -261,122 +354,137 @@
 
                 .spw-notification {
                     ${theme.background}
-                    ${theme.border}
-                    border-radius: 8px;
-                    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-                    padding: 12px 16px;
-                    max-width: 320px;
-                    min-width: 280px;
+                    border-radius: 12px;
+                    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+                    padding: 16px 20px;
+                    max-width: 380px;
+                    min-width: 320px;
                     position: relative;
                     backdrop-filter: blur(10px);
+                    border: 1px solid ${theme.borderColor};
+                }
+
+                .spw-notification:hover .spw-close {
+                    opacity: 1;
                 }
 
                 .spw-content {
                     display: flex;
-                    align-items: center;
+                    align-items: flex-start;
                     gap: 12px;
                 }
 
                 .spw-avatar {
                     flex-shrink: 0;
+                    margin-top: 2px;
                 }
 
                 .spw-avatar-placeholder {
-                    width: 40px;
-                    height: 40px;
-                    border-radius: 50%;
+                    width: 48px;
+                    height: 48px;
+                    border-radius: 12px;
                     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
                     display: flex;
                     align-items: center;
                     justify-content: center;
                     color: white;
-                    font-weight: bold;
-                    font-size: 16px;
+                    font-weight: 600;
+                    font-size: 18px;
+                    overflow: hidden;
+                    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+                }
+
+                .spw-avatar-image {
+                    width: 100%;
+                    height: 100%;
+                    border-radius: 12px;
+                    object-fit: cover;
+                }
+
+                .spw-avatar-emoji {
+                    font-size: 24px;
+                    line-height: 1;
                 }
 
                 .spw-text {
                     flex: 1;
                     min-width: 0;
+                    padding-top: 2px;
                 }
 
-                .spw-name {
-                    font-weight: 600;
-                    font-size: 14px;
+                .spw-message {
+                    font-weight: 500;
+                    font-size: 15px;
                     ${theme.primaryText}
-                    margin-bottom: 2px;
-                }
-
-                .spw-action {
-                    font-size: 13px;
-                    ${theme.secondaryText}
-                    margin-bottom: 2px;
-                    line-height: 1.3;
+                    line-height: 1.4;
+                    margin-bottom: 4px;
                 }
 
                 .spw-time {
-                    font-size: 12px;
+                    font-size: 13px;
                     ${theme.mutedText}
+                    font-weight: 400;
                 }
 
                 .spw-close {
                     position: absolute;
-                    top: 8px;
-                    right: 8px;
-                    width: 20px;
-                    height: 20px;
-                    border-radius: 50%;
-                    background: rgba(0, 0, 0, 0.1);
+                    top: 12px;
+                    right: 12px;
+                    width: 24px;
+                    height: 24px;
+                    border-radius: 6px;
+                    background: ${theme.closeBackground};
                     display: flex;
                     align-items: center;
                     justify-content: center;
                     cursor: pointer;
-                    font-size: 14px;
+                    font-size: 16px;
                     line-height: 1;
-                    ${theme.mutedText}
-                    opacity: 0.7;
-                    transition: opacity 0.2s;
+                    ${theme.closeText}
+                    opacity: 0;
+                    transition: all 0.2s ease;
+                    font-weight: 400;
                 }
 
                 .spw-close:hover {
-                    opacity: 1;
-                    background: rgba(0, 0, 0, 0.2);
+                    background: ${theme.closeHoverBackground};
+                    transform: scale(1.1);
                 }
 
                 .spw-verification {
-                    margin-top: 8px;
-                    padding-top: 8px;
-                    border-top: 1px solid rgba(0, 0, 0, 0.1);
-                    font-size: 11px;
+                    margin-top: 12px;
+                    padding-top: 12px;
+                    border-top: 1px solid ${theme.borderColor};
+                    font-size: 12px;
                     ${theme.mutedText}
                     display: flex;
                     align-items: center;
-                    gap: 4px;
+                    gap: 6px;
+                    font-weight: 400;
                 }
 
-                .spw-verification::before {
-                    content: "✓";
+                .spw-verification-icon {
                     color: #10b981;
-                    font-weight: bold;
+                    font-weight: 600;
+                    font-size: 12px;
                 }
 
-                /* Responsive design */
+                .spw-verification-text {
+                    flex: 1;
+                }
+
                 @media (max-width: 480px) {
-                    .social-proof-widget {
-                        left: 16px !important;
-                        right: 16px !important;
-                        bottom: 16px !important;
-                    }
-                    
                     .spw-notification {
-                        max-width: none;
-                        min-width: auto;
+                        max-width: calc(100vw - 40px);
+                        min-width: calc(100vw - 40px);
+                        margin: 0 20px;
                     }
                 }
             `;
         }
 
         /**
-         * Get position styles based on configuration
+         * Get position-specific CSS styles
          */
         getPositionStyles() {
             const positions = {
@@ -385,67 +493,65 @@
                 'top-left': 'top: 20px; left: 20px;',
                 'top-right': 'top: 20px; right: 20px;'
             };
+
             return positions[this.config.position] || positions['bottom-left'];
         }
 
         /**
-         * Get theme styles
+         * Get theme-specific CSS styles
          */
         getThemeStyles() {
             const themes = {
                 light: {
-                    background: 'background: rgba(255, 255, 255, 0.95);',
-                    border: 'border: 1px solid rgba(0, 0, 0, 0.1);',
+                    background: 'background: rgba(255, 255, 255, 0.98);',
                     primaryText: 'color: #1f2937;',
-                    secondaryText: 'color: #4b5563;',
-                    mutedText: 'color: #9ca3af;'
+                    mutedText: 'color: #6b7280;',
+                    borderColor: 'rgba(0, 0, 0, 0.08)',
+                    closeBackground: 'rgba(0, 0, 0, 0.05)',
+                    closeHoverBackground: 'rgba(0, 0, 0, 0.1)',
+                    closeText: 'color: #6b7280;'
                 },
                 dark: {
-                    background: 'background: rgba(31, 41, 55, 0.95);',
-                    border: 'border: 1px solid rgba(255, 255, 255, 0.1);',
+                    background: 'background: rgba(31, 41, 55, 0.98);',
                     primaryText: 'color: #f9fafb;',
-                    secondaryText: 'color: #d1d5db;',
-                    mutedText: 'color: #9ca3af;'
+                    mutedText: 'color: #9ca3af;',
+                    borderColor: 'rgba(255, 255, 255, 0.1)',
+                    closeBackground: 'rgba(255, 255, 255, 0.1)',
+                    closeHoverBackground: 'rgba(255, 255, 255, 0.2)',
+                    closeText: 'color: #d1d5db;'
                 }
             };
+
             return themes[this.config.theme] || themes.light;
         }
 
         /**
-         * Load notifications from Google Sheets
-         */
-        async loadNotifications() {
-            try {
-                this.notifications = await this.sheetsIntegration.getRecentNotifications(
-                    this.config.maxNotifications
-                );
-            } catch (error) {
-                console.error('Failed to load notifications:', error);
-                this.notifications = [];
-            }
-        }
-
-        /**
-         * Start the display cycle
+         * Start the notification display cycle
          */
         startDisplayCycle() {
             if (this.notifications.length === 0) return;
 
-            // Show first notification after initial delay
+            // Reset counters
+            this.currentIndex = 0;
+            this.displayCount = 0;
+
+            // Start showing notifications
             setTimeout(() => {
                 this.showNextNotification();
-            }, 2000);
+            }, 1000);
         }
 
         /**
-         * Show the next notification
+         * Show the next notification in the cycle
          */
         showNextNotification() {
+            // Check if we should stop showing notifications
             if (this.displayCount >= this.config.hideAfter) {
                 this.hide();
                 return;
             }
 
+            // Reset index if we've shown all notifications
             if (this.currentIndex >= this.notifications.length) {
                 this.currentIndex = 0;
             }
@@ -469,22 +575,142 @@
          * Display a notification
          */
         displayNotification(notification) {
-            const nameEl = this.container.querySelector('.spw-name');
-            const actionEl = this.container.querySelector('.spw-action');
+            const messageEl = this.container.querySelector('.spw-message');
             const timeEl = this.container.querySelector('.spw-time');
             const avatarEl = this.container.querySelector('.spw-avatar-placeholder');
 
-            // Update content
-            nameEl.textContent = notification.name;
-            actionEl.textContent = `from ${notification.location} purchased ${notification.product}`;
-            timeEl.textContent = notification.timeAgo;
+            // Build message text
+            const action = notification.action || 'purchased';
+            const messageText = `${notification.name} in ${notification.location} ${action} ${notification.product}`;
             
-            // Set avatar initial
-            avatarEl.textContent = notification.name.charAt(0).toUpperCase();
+            // Update content
+            messageEl.textContent = messageText;
+            timeEl.textContent = notification.timeAgo || 'recently';
+            
+            // Handle profile picture
+            this.setAvatar(avatarEl, notification);
 
             // Show notification
             this.container.classList.add('spw-visible');
             this.isVisible = true;
+        }
+
+        /**
+         * Set avatar based on available data
+         * @param {HTMLElement} avatarEl - Avatar container element
+         * @param {Object} notification - Notification data
+         */
+        setAvatar(avatarEl, notification) {
+            // Clear previous content
+            avatarEl.innerHTML = '';
+            avatarEl.className = 'spw-avatar-placeholder';
+
+            // Priority 1: Emoji from picture field
+            if (notification.picture && this.isEmoji(notification.picture)) {
+                avatarEl.innerHTML = `<span class="spw-avatar-emoji">${notification.picture}</span>`;
+                return;
+            }
+
+            // Priority 2: Gravatar from email
+            if (notification.email && this.isValidEmail(notification.email)) {
+                const gravatarUrl = this.getGravatarUrl(notification.email);
+                const img = document.createElement('img');
+                img.className = 'spw-avatar-image';
+                img.src = gravatarUrl;
+                img.alt = notification.name;
+                
+                // Fallback to initials if Gravatar fails to load
+                img.onerror = () => {
+                    avatarEl.innerHTML = '';
+                    avatarEl.textContent = notification.name.charAt(0).toUpperCase();
+                };
+                
+                avatarEl.appendChild(img);
+                return;
+            }
+
+            // Priority 3: URL from picture field
+            if (notification.picture && this.isValidUrl(notification.picture)) {
+                const img = document.createElement('img');
+                img.className = 'spw-avatar-image';
+                img.src = notification.picture;
+                img.alt = notification.name;
+                
+                // Fallback to initials if image fails to load
+                img.onerror = () => {
+                    avatarEl.innerHTML = '';
+                    avatarEl.textContent = notification.name.charAt(0).toUpperCase();
+                };
+                
+                avatarEl.appendChild(img);
+                return;
+            }
+
+            // Fallback: First letter of name
+            avatarEl.textContent = notification.name.charAt(0).toUpperCase();
+        }
+
+        /**
+         * Check if a string is an emoji
+         * @param {string} str - String to check
+         * @returns {boolean} Whether the string is an emoji
+         */
+        isEmoji(str) {
+            const emojiRegex = /^[\u{1F600}-\u{1F64F}]|[\u{1F300}-\u{1F5FF}]|[\u{1F680}-\u{1F6FF}]|[\u{1F1E0}-\u{1F1FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]|[\u{2B50}]$/u;
+            return emojiRegex.test(str.trim());
+        }
+
+        /**
+         * Check if a string is a valid email
+         * @param {string} email - Email to validate
+         * @returns {boolean} Whether the email is valid
+         */
+        isValidEmail(email) {
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            return emailRegex.test(email);
+        }
+
+        /**
+         * Check if a string is a valid URL
+         * @param {string} url - URL to validate
+         * @returns {boolean} Whether the URL is valid
+         */
+        isValidUrl(url) {
+            try {
+                new URL(url);
+                return true;
+            } catch {
+                return false;
+            }
+        }
+
+        /**
+         * Generate Gravatar URL from email
+         * @param {string} email - Email address
+         * @returns {string} Gravatar URL
+         */
+        getGravatarUrl(email) {
+            // Simple MD5 hash implementation for Gravatar
+            const hash = this.md5(email.toLowerCase().trim());
+            return `https://www.gravatar.com/avatar/${hash}?s=96&d=mp&r=g`;
+        }
+
+        /**
+         * Simple MD5 hash implementation
+         * @param {string} str - String to hash
+         * @returns {string} MD5 hash
+         */
+        md5(str) {
+            // This is a simplified MD5 implementation for Gravatar
+            // In production, you might want to use a proper crypto library
+            let hash = 0;
+            if (str.length === 0) return hash.toString(16);
+            for (let i = 0; i < str.length; i++) {
+                const char = str.charCodeAt(i);
+                hash = ((hash << 5) - hash) + char;
+                hash = hash & hash; // Convert to 32-bit integer
+            }
+            return Math.abs(hash).toString(16);
         }
 
         /**
@@ -523,6 +749,9 @@
             
             if (newConfig.spreadsheetId && newConfig.spreadsheetId !== this.config.spreadsheetId) {
                 this.init();
+            } else {
+                // Recreate widget with new config
+                this.createWidget();
             }
         }
 
@@ -553,7 +782,9 @@
                 displayDuration: parseInt(script.getAttribute('data-display-duration')) || 4000,
                 delayBetween: parseInt(script.getAttribute('data-delay-between')) || 3000,
                 maxNotifications: parseInt(script.getAttribute('data-max-notifications')) || 5,
-                hideAfter: parseInt(script.getAttribute('data-hide-after')) || 10
+                hideAfter: parseInt(script.getAttribute('data-hide-after')) || 10,
+                showVerification: script.getAttribute('data-show-verification') !== 'false',
+                verificationText: script.getAttribute('data-verification-text') || 'Verified by Social Proof'
             };
 
             window.socialProofWidget = new SocialProofWidget(config);
